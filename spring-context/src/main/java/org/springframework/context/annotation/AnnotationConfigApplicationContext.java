@@ -62,7 +62,12 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 * through {@link #register} calls and then manually {@linkplain #refresh refreshed}.
 	 */
 	public AnnotationConfigApplicationContext() {
+		/**
+		 * 初始化基于注解的beanDefinition扫描器
+		 * 把处理注解的bean定义 放入到容器中
+		 */
 		this.reader = new AnnotatedBeanDefinitionReader(this);
+		//初始化 基于classpath的beanDefinition扫描器
 		this.scanner = new ClassPathBeanDefinitionScanner(this);
 	}
 
@@ -167,6 +172,7 @@ public class AnnotationConfigApplicationContext extends GenericApplicationContex
 	 */
 	public void scan(String... basePackages) {
 		Assert.notEmpty(basePackages, "At least one base package must be specified");
+		// 使用刚刚基于 ClassPathBeanDefinitionScanner
 		this.scanner.scan(basePackages);
 	}
 

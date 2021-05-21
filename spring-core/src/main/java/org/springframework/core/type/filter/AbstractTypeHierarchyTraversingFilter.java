@@ -57,6 +57,7 @@ public abstract class AbstractTypeHierarchyTraversingFilter implements TypeFilte
 	public boolean match(MetadataReader metadataReader, MetadataReaderFactory metadataReaderFactory)
 			throws IOException {
 
+		// 判断 候选类上的注解 是否是@Component或者@Component派生的注解
 		// This method optimizes avoiding unnecessary creation of ClassReaders
 		// as well as visiting over those readers.
 		if (matchSelf(metadataReader)) {
@@ -67,6 +68,7 @@ public abstract class AbstractTypeHierarchyTraversingFilter implements TypeFilte
 			return true;
 		}
 
+		//判断 候选类父类上的注解 是否是@Component或者@Component派生的注解
 		if (this.considerInherited) {
 			String superClassName = metadata.getSuperClassName();
 			if (superClassName != null) {
@@ -94,6 +96,7 @@ public abstract class AbstractTypeHierarchyTraversingFilter implements TypeFilte
 			}
 		}
 
+		//判断 候选类接口上的注解 是否是@Component或者@Component派生的注解
 		if (this.considerInterfaces) {
 			for (String ifc : metadata.getInterfaceNames()) {
 				// Optimization to avoid creating ClassReader for super class
