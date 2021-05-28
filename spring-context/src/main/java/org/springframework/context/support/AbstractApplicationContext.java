@@ -526,25 +526,43 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
 			// Prepare the bean factory for use in this context.
+			/**
+			 * 设置BeanFactory的类加载器
+			 * 添加几个 BeanPostProcessor到成员变量
+			 * 手动注册几个特殊的bean
+			 */
 			prepareBeanFactory(beanFactory);
 
 			try {
 				// Allows post-processing of the bean factory in context subclasses.
+				// 拓展点：留给子类去实现用来 后处理 beanFactory，注意这里不是bean
 				postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
+				//调用后处理beanFactory
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
+				/**
+				 * 先实例化****BeanPostProcessor对象，因为后面实例化普通bean的时候需要调用后处理方法
+				 * 再把实例化后的processor对象放入
+				 * @link org.springframework.beans.factory.support.AbstractBeanFactory#beanPostProcessors
+				 */
 				registerBeanPostProcessors(beanFactory);
 
 				// Initialize message source for this context.
+				// 国际化
 				initMessageSource();
 
 				// Initialize event multicaster for this context.
+				//初始化事件广播器
 				initApplicationEventMulticaster();
 
 				// Initialize other special beans in specific context subclasses.
+				/**
+				 * 扩展点:允许子类在指定上下问中来实例化指定的bean
+				 * web服务中，tomcat就是利用这个拓展点来初始化的。
+				 */
 				onRefresh();
 
 				// Check for listener beans and register them.
@@ -635,7 +653,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * @see #refreshBeanFactory()
 	 * @see #getBeanFactory()
 	 */
-	protected ConfigurableListableBeanFactory obtainFreshBeanFactory() {
+	protected ConfigurableListableBeanFactory  obtainFreshBeanFactory() {
 		/**
 		 * 对于AnnotationConfigApplication->GenericApplicationContext，这里已经不需要再扫描bean的定义。因为在前面 02调用了scan()方法
 		 * 对于其他容器，ClassPathXmlApplicationContext->AbstractRefreshableApplicationContext，有自己的实现，会完成beanDefinition的解析。
@@ -660,6 +678,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.addPropertyEditorRegistrar(new ResourceEditorRegistrar(this, getEnvironment()));
 
 		// Configure the bean factory with context callbacks.
+		// 注册 beanPostProcessors 到成员变量
 		beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
 		beanFactory.ignoreDependencyInterface(EnvironmentAware.class);
 		beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);
@@ -862,6 +881,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
+		// 解析类型转换器Service，里面组合了很多不同类型的转换器(GenericConverter)
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
@@ -871,11 +891,16 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		// Register a default embedded value resolver if no bean post-processor
 		// (such as a PropertyPlaceholderConfigurer bean) registered any before:
 		// at this point, primarily for resolution in annotation attribute values.
+		// 解析 值类型解析器(StringValueResolver)
 		if (!beanFactory.hasEmbeddedValueResolver()) {
 			beanFactory.addEmbeddedValueResolver(strVal -> getEnvironment().resolvePlaceholders(strVal));
 		}
 
 		// Initialize LoadTimeWeaverAware beans early to allow for registering their transformers early.
+		/**
+		 * 优先初始化LoadTimeWeaverAware类型的bean，以便在加载类的时候可以转换其他类。
+		 * 看到这里，解开心中的一个疑问：之前开发字节码增强的需求时，就在考虑为什么静态类加载的时候可以增强，类加载的顺序是不是和文件顺序有关。
+		 */
 		String[] weaverAwareNames = beanFactory.getBeanNamesForType(LoadTimeWeaverAware.class, false, false);
 		for (String weaverAwareName : weaverAwareNames) {
 			getBean(weaverAwareName);
@@ -885,6 +910,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.setTempClassLoader(null);
 
 		// Allow for caching all bean definition metadata, not expecting further changes.
+		// 冻结beanDefinition
 		beanFactory.freezeConfiguration();
 
 		// Instantiate all remaining (non-lazy-init) singletons.
