@@ -259,6 +259,7 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		doScan(basePackages);
 
 		// Register annotation config processors, if necessary.
+		// 在上面初始AnnotatedBeanDefinitionReader 已经处理过了
 		if (this.includeAnnotationConfig) {
 			/**
 			 * @link org.springframework.context.annotation.AnnotatedBeanDefinitionReader.AnnotatedBeanDefinitionReader(org.springframework.beans.factory.support.BeanDefinitionRegistry, org.springframework.core.env.Environment)
@@ -282,28 +283,40 @@ public class ClassPathBeanDefinitionScanner extends ClassPathScanningCandidateCo
 		Set<BeanDefinitionHolder> beanDefinitions = new LinkedHashSet<>();
 		for (String basePackage : basePackages) {
 			/**
-			 * 通过Resource查找类路径下面候选的类
+			 * 【重要】
+			 * 2.1通过Resource查找类路径下面候选的类
+			 * 2.2.做一些基础的处理
+			 * 2.3.把处理完成的BeanDefinition注册到BeanFactory
+			 * 2.4.完成所有的类扫描
 			 */
 			Set<BeanDefinition> candidates = findCandidateComponents(basePackage);
 			for (BeanDefinition candidate : candidates) {
+				//绑定BeanDefinition与Scope
 				ScopeMetadata scopeMetadata = this.scopeMetadataResolver.resolveScopeMetadata(candidate);
 				candidate.setScope(scopeMetadata.getScopeName());
+				//查看是否配置类是否指定bean的名称，如没指定则使用类名首字母小写
 				String beanName = this.beanNameGenerator.generateBeanName(candidate, this.registry);
+				//2.2 处理lazy、Autowire、DependencyOn、initMethod、enforceInitMethod、destroyMethod、enforceDestroyMethod、Primary、Role、Description这些逻辑的
 				if (candidate instanceof AbstractBeanDefinition) {
 					postProcessBeanDefinition((AbstractBeanDefinition) candidate, beanName);
 				}
 				if (candidate instanceof AnnotatedBeanDefinition) {
 					AnnotationConfigUtils.processCommonDefinitionAnnotations((AnnotatedBeanDefinition) candidate);
 				}
+				// 检查BeanDefinition是否存在：初次扫描到的肯定是不存在的
 				if (checkCandidate(beanName, candidate)) {
+					// 用BeanDefinitionHolder再次包装BeanDefinition
 					BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(candidate, beanName);
+					//检查scope是否创建，如未创建则进行创建
 					definitionHolder =
 							AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 					beanDefinitions.add(definitionHolder);
+					//2.3 注册BeanDefinition到BeanFactory的BeanDefinitionMap中。
 					registerBeanDefinition(definitionHolder, this.registry);
 				}
 			}
 		}
+		//2.4
 		return beanDefinitions;
 	}
 

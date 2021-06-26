@@ -481,7 +481,11 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
-			// 判断是否存在代理bean，存在直接返回
+			/**
+			 * 这里调用BeanPostProcessor 前置处理器postProcessBeforeInstantiation
+			 * 程序有两个选择，如果创建了代理或者说重写了InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法并在方法postProcess BeforeInstantiation中改变了bean，
+			 * 	则直接返回就可以了，否则需要进行常规bean的创建
+			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {
 				return bean;
@@ -581,6 +585,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			// 填充bean的属性
 			populateBean(beanName, mbd, instanceWrapper);
+			// 初始化Aware，调用PostProcessor后置处理
 			exposedObject = initializeBean(beanName, exposedObject, mbd);
 		}
 		catch (Throwable ex) {
@@ -621,7 +626,10 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		}
 
 		// Register bean as disposable.
-		// 05 把bean的实例加到BeanFactory ？？
+		/**
+		 * 05 拓展点：登记一下这个Bean在容器关闭的时候是否需要调用销毁的方法。  如果需要 放在 Map<String, Object> disposableBeans 变量中
+		 * Spring中不但提供了对于初始化方法的扩展入口，同样也提供了销毁方法的扩展入口
+ 		 */
 		try {
 			registerDisposableBeanIfNecessary(beanName, bean, mbd);
 		}
@@ -630,6 +638,7 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 					mbd.getResourceDescription(), beanName, "Invalid destruction signature", ex);
 		}
 
+		// 返回Bean
 		return exposedObject;
 	}
 
@@ -1041,7 +1050,9 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 			if (!mbd.isSynthetic() && hasInstantiationAwareBeanPostProcessors()) {
 				Class<?> targetType = determineTargetType(beanName, mbd);
 				if (targetType != null) {
+					// 前置处理
 					bean = applyBeanPostProcessorsBeforeInstantiation(targetType, beanName);
+					// 如果从缓存中获取的bean 就不会在执行后面的创建流程，所以这里要做一次后置处理
 					if (bean != null) {
 						bean = applyBeanPostProcessorsAfterInitialization(bean, beanName);
 					}

@@ -321,6 +321,7 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 			return addCandidateComponentsFromIndex(this.componentsIndex, basePackage);
 		}
 		else {
+			//开始扫描包
 			return scanCandidateComponents(basePackage);
 		}
 	}
@@ -424,8 +425,10 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 	private Set<BeanDefinition> scanCandidateComponents(String basePackage) {
 		Set<BeanDefinition> candidates = new LinkedHashSet<>();
 		try {
+			//2.1.1组装扫描路径
 			String packageSearchPath = ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX +
 					resolveBasePackage(basePackage) + '/' + this.resourcePattern;
+			//2.1.2扫描指定路径下面的所有类
 			Resource[] resources = getResourcePatternResolver().getResources(packageSearchPath);
 			boolean traceEnabled = logger.isTraceEnabled();
 			boolean debugEnabled = logger.isDebugEnabled();
@@ -436,9 +439,14 @@ public class ClassPathScanningCandidateComponentProvider implements EnvironmentC
 				if (resource.isReadable()) {
 					try {
 						/**
-						 * 元数据阅读器
+						 * 2.1.3元数据阅读器，获取类上的资源，类信息，注解信息
 						 */
 						MetadataReader metadataReader = getMetadataReaderFactory().getMetadataReader(resource);
+						/**
+						 * 2.1.4【重要】 直接判断是否是需要装配的Bean组件
+						 * 是：放入集合统一返回
+						 * 否：过滤
+						 */
 						if (isCandidateComponent(metadataReader)) {
 							ScannedGenericBeanDefinition sbd = new ScannedGenericBeanDefinition(metadataReader);
 							sbd.setSource(resource);

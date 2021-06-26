@@ -732,6 +732,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 		List<String> beanNames = new ArrayList<>(this.beanDefinitionNames);
 
 		// Trigger initialization of all non-lazy singleton beans...
+		// 循环初始化bean
 		for (String beanName : beanNames) {
 			RootBeanDefinition bd = getMergedLocalBeanDefinition(beanName);
 			// 非抽象的，单例的，非懒加载的。
@@ -756,7 +757,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 					}
 				}
 				else {
-					// 开始bean的初始化
+					// 【重要】开始bean的初始化入口
 					getBean(beanName);
 				}
 			}
@@ -806,8 +807,18 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 		}
 
+		/**
+		 * 所有的BeanDefinition都会放在beanDefinitionMap变量中
+		 * 01 先判断是否已经存在 同名的BeanDefinition
+		 *  1.1 存在判断是否能覆盖
+		 *  1.2直接覆盖同名的Bean，不同类型也能覆盖
+		 * 02不存在同名的BeanDefinition
+		 * 	2.1直接放入beanDefinitionMap，beanDefinitionNames变量中
+		 * 	2.2清理缓存
+		 */
 		BeanDefinition existingDefinition = this.beanDefinitionMap.get(beanName);
 		if (existingDefinition != null) {
+			// 不允许覆盖，然后又重复扫描到了 -> 抛出异常
 			if (!isAllowBeanDefinitionOverriding()) {
 				throw new BeanDefinitionStoreException(beanDefinition.getResourceDescription(), beanName,
 						"Cannot register bean definition [" + beanDefinition + "] for bean '" + beanName +
@@ -815,6 +826,11 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 			else if (existingDefinition.getRole() < beanDefinition.getRole()) {
 				// e.g. was ROLE_APPLICATION, now overriding with ROLE_SUPPORT or ROLE_INFRASTRUCTURE
+				/**
+				 * 用框架定义的 Bean 覆盖用户自定义的 Bean
+				 * 这里看注释是这么翻译的，但是在实际SpringBoot项目中：
+				 * 如果没有手动disableAutoConfig 好像都是用户自定义的配置类覆盖了框架自动装配的。还得试验下。？？
+				 */
 				if (logger.isWarnEnabled()) {
 					logger.warn("Overriding user-defined bean definition for bean '" + beanName +
 							"' with a framework-generated bean definition: replacing [" +
@@ -837,6 +853,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			}
 			this.beanDefinitionMap.put(beanName, beanDefinition);
 		}
+		//02 不存在同名的BeanDefinition
 		else {
 			if (hasBeanCreationStarted()) {
 				// Cannot modify startup-time collection elements anymore (for stable iteration)
@@ -862,6 +879,7 @@ public class DefaultListableBeanFactory extends AbstractAutowireCapableBeanFacto
 			this.frozenBeanDefinitionNames = null;
 		}
 
+		// 处理缓存
 		if (existingDefinition != null || containsSingleton(beanName)) {
 			resetBeanDefinition(beanName);
 		}

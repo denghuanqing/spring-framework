@@ -521,31 +521,31 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 			// Tell the subclass to refresh the internal bean factory.
 			/**
-			 * 	委托实现类刷新beanFactory，这里是模板方法设计模式
+			 * 	01 委托实现类刷新beanFactory，这里是模板方法设计模式
 			 */
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
-			// Prepare the bean factory for use in this context.
-			/**
-			 * 设置BeanFactory的类加载器
-			 * 添加几个 BeanPostProcessor到成员变量
-			 * 手动注册几个特殊的bean
-			 */
-			prepareBeanFactory(beanFactory);
+				// Prepare the bean factory for use in this context.
+				/**
+				 * 02 设置BeanFactory的类加载器，初始化一个标准的容器
+				 * 实例化 2个 BeanPostProcessor到成员变量<beanPostProcessors>
+				 * 手动注册几个特殊的bean
+				 */
+				prepareBeanFactory(beanFactory);
 
-			try {
-				// Allows post-processing of the bean factory in context subclasses.
-				// 拓展点：留给子类去实现用来 后处理 beanFactory，注意这里不是bean
-				postProcessBeanFactory(beanFactory);
+				try {
+					// Allows post-processing of the bean factory in context subclasses.
+					// 03 拓展点：留给子类去实现扩展 比如Web容器注册ServletContextAwareProcessor
+					postProcessBeanFactory(beanFactory);
 
 				// Invoke factory processors registered as beans in the context.
-				//调用后处理beanFactory
+				//04 实例化 BeanFactoryPostProcessor，并且调用后处理方法。是对BeanFactory中的bean拓展
 				invokeBeanFactoryPostProcessors(beanFactory);
 
 				// Register bean processors that intercept bean creation.
 				/**
-				 * 先实例化****BeanPostProcessor对象，因为后面实例化普通bean的时候需要调用后处理方法
-				 * 再把实例化后的processor对象放入
+				 * 05 先实例化 ****BeanPostProcessor对象（之前scan扫描到的BeanDefinition），因为后面实例化普通bean的时候（getBean()）需要调用后处理方法。
+				 * 再把实例化后的processor对象放入 beanPostProcessors 成员变量:
 				 * @link org.springframework.beans.factory.support.AbstractBeanFactory#beanPostProcessors
 				 */
 				registerBeanPostProcessors(beanFactory);
@@ -560,16 +560,18 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 				// Initialize other special beans in specific context subclasses.
 				/**
-				 * 扩展点:允许子类在指定上下问中来实例化指定的bean
+				 * 06 扩展点:允许子类在指定上下问中来实例化指定的bean
+				 * 模板方法设计模式，发生在特殊Bean实例化之后，单例Bean实例化之前
 				 * web服务中，tomcat就是利用这个拓展点来初始化的。
 				 */
 				onRefresh();
 
 				// Check for listener beans and register them.
+				// 07 注册事件监听器（实现了ApplicationListener接口的类）
 				registerListeners();
 
 				/**
-				 * 实例化bean
+				 * 08 真正开始 实例化bean
 				 */
 				// Instantiate all remaining (non-lazy-init) singletons.
 				finishBeanFactoryInitialization(beanFactory);
@@ -678,8 +680,14 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 		beanFactory.addPropertyEditorRegistrar(new ResourceEditorRegistrar(this, getEnvironment()));
 
 		// Configure the bean factory with context callbacks.
-		// 注册 beanPostProcessors 到成员变量
+		/**
+		 *	注册 beanPostProcessors 到成员变量
+		 *	用于把ApplicationContext上下文传递给实现了 {@link EnvironmentAware}, {@link EmbeddedValueResolverAware},
+		 *  {@link ResourceLoaderAware}, {@link ApplicationEventPublisherAware},{@link MessageSourceAware} and/or {@link ApplicationContextAware} 接口的对象
+		 *  【编码中注入Spring容器上下文就是这么干的】
+ 		 */
 		beanFactory.addBeanPostProcessor(new ApplicationContextAwareProcessor(this));
+		// 依赖注入的时候忽略这些Spring内置的bean，应该是不能直接拿来注入的。
 		beanFactory.ignoreDependencyInterface(EnvironmentAware.class);
 		beanFactory.ignoreDependencyInterface(EmbeddedValueResolverAware.class);
 		beanFactory.ignoreDependencyInterface(ResourceLoaderAware.class);
@@ -689,12 +697,17 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 
 		// BeanFactory interface not registered as resolvable type in a plain factory.
 		// MessageSource registered (and found for autowiring) as a bean.
+		// 注册到ioc依赖注入
 		beanFactory.registerResolvableDependency(BeanFactory.class, beanFactory);
 		beanFactory.registerResolvableDependency(ResourceLoader.class, this);
 		beanFactory.registerResolvableDependency(ApplicationEventPublisher.class, this);
 		beanFactory.registerResolvableDependency(ApplicationContext.class, this);
 
 		// Register early post-processor for detecting inner beans as ApplicationListeners.
+		/**
+		 * 注册 用于发现实现了ApplicationListener接口的bean
+		 * 【发现Spring内部消息的监听者】
+		 */
 		beanFactory.addBeanPostProcessor(new ApplicationListenerDetector(this));
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found.
@@ -732,6 +745,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 * <p>Must be called before singleton instantiation.
 	 */
 	protected void invokeBeanFactoryPostProcessors(ConfigurableListableBeanFactory beanFactory) {
+		// 4.1
 		PostProcessorRegistrationDelegate.invokeBeanFactoryPostProcessors(beanFactory, getBeanFactoryPostProcessors());
 
 		// Detect a LoadTimeWeaver and prepare for weaving, if found in the meantime
@@ -786,6 +800,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	}
 
 	/**
+	 * 初始化事件广播器，如果没有指定，则使用默认的实现：SimpleApplicationEventMulticaster
 	 * Initialize the ApplicationEventMulticaster.
 	 * Uses SimpleApplicationEventMulticaster if none defined in the context.
 	 * @see org.springframework.context.event.SimpleApplicationEventMulticaster
@@ -881,7 +896,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 	 */
 	protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
 		// Initialize conversion service for this context.
-		// 解析类型转换器Service，里面组合了很多不同类型的转换器(GenericConverter)
+		/**
+		 * 解析类型转换器Service，里面组合了很多不同类型的转换器(GenericConverter)
+		 * 这个类的主要作用是 解析并且转换参数的类型
+		 */
 		if (beanFactory.containsBean(CONVERSION_SERVICE_BEAN_NAME) &&
 				beanFactory.isTypeMatch(CONVERSION_SERVICE_BEAN_NAME, ConversionService.class)) {
 			beanFactory.setConversionService(
