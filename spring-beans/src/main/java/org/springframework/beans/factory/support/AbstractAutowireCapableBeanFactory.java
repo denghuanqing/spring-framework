@@ -482,9 +482,13 @@ public abstract class AbstractAutowireCapableBeanFactory extends AbstractBeanFac
 		try {
 			// Give BeanPostProcessors a chance to return a proxy instead of the target bean instance.
 			/**
+			 *
 			 * 这里调用BeanPostProcessor 前置处理器postProcessBeforeInstantiation
 			 * 程序有两个选择，如果创建了代理或者说重写了InstantiationAwareBeanPostProcessor的postProcessBeforeInstantiation方法并在方法postProcess BeforeInstantiation中改变了bean，
 			 * 	则直接返回就可以了，否则需要进行常规bean的创建
+			 * 	应用：Aop的实现就是在这里
+			 *
+			 * 	//TODO 这里再经过applyBeanPostProcessorsBeforeInstantiation后可能会提前返回Bean ？？？
 			 */
 			Object bean = resolveBeforeInstantiation(beanName, mbdToUse);
 			if (bean != null) {

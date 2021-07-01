@@ -171,16 +171,34 @@ public class DefaultSingletonBeanRegistry extends SimpleAliasRegistry implements
 	 * @param beanName the name of the bean to look for
 	 * @param allowEarlyReference whether early references should be created or not
 	 * @return the registered singleton object, or {@code null} if none found
+	 *
+	 * 分别从singletonObjects earlySingletonObjects singletonFactories3个地方获取单例bean
+	 * 获取不到就用singletonFactory来创建bean，并且提前暴露。
+	 * 先从单例缓存工厂取，如果缓存为空，
+	 * 再从
 	 */
 	@Nullable
 	protected Object getSingleton(String beanName, boolean allowEarlyReference) {
+		// 判断单例缓存中是否存在
 		Object singletonObject = this.singletonObjects.get(beanName);
 		if (singletonObject == null && isSingletonCurrentlyInCreation(beanName)) {
 			synchronized (this.singletonObjects) {
+				/**
+				 * 如果当前Bean 正在加载，则无需处理，直接返回。
+				 * 这里就是解决循环依赖的地方之一。A->B  B->A
+				 * 首先 实例化A的时候会优先判断A是否存在于 earlySingletonObjects，不存在则放入earlySingletonObjects。
+				 * 接下来 实例化A的依赖B，这时候B不存在，放入earlySingletonObjects中，然后B依赖A，所以开始实例化A。
+				 * 其次 实例化B的时候发现依赖A，发现A已经存在于放入earlySingletonObjects中，所以直接引用它。
+				 * 最后 B完成递归实例化，最后实例化A
+				 */
 				singletonObject = this.earlySingletonObjects.get(beanName);
 				if (singletonObject == null && allowEarlyReference) {
+					/**
+					 * 如果当前Bean存在ObjectFactory，就直接在这初始化了。不用再走后面的createBean()
+					 */
 					ObjectFactory<?> singletonFactory = this.singletonFactories.get(beanName);
 					if (singletonFactory != null) {
+						//调用ObjectFactory来创建Bean
 						singletonObject = singletonFactory.getObject();
 						this.earlySingletonObjects.put(beanName, singletonObject);
 						this.singletonFactories.remove(beanName);
